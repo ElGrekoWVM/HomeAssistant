@@ -1,0 +1,6 @@
+rest_command:
+  plex_movie_dimensions:
+    url: "http://[PLEX_IP]:32400/library/metadata/{{ movie_id }}?X-Plex-Token=[PLEX_TOKEN]"
+    method: GET
+    headers:
+      Accept: application/json
