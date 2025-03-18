@@ -1,0 +1,94 @@
+alias: Check Aspect Ratio During Playback on Plex
+description: >
+  This automation triggers when a specific webhook is called. 
+  It checks the playback source on the SHIELD Android TV and retrieves the dimensions of the currently playing media. 
+  Based on the calculated aspect ratio, it sends commands to the living room hub to adjust settings or notify the user if the aspect ratio is unknown.
+triggers:
+  - allowed_methods:
+      - POST
+      - PUT
+    local_only: true
+    webhook_id: >-
+      [PLEX_WEBHOOK_ID]
+    trigger: webhook
+conditions:
+  - condition: template
+    value_template: >-
+      {% set payload = trigger.data.payload.decode() | from_json %} {{
+       payload.Player.title == '[PLAYER_NAME]' and payload.event in ['media.pause', 'media.play', 'media.resume'] }}
+actions:
+  - data:
+      movie_id: >-
+        {% set payload = trigger.data.payload.decode() | from_json %} {{
+        payload.Metadata.ratingKey }}
+    action: rest_command.plex_movie_dimensions
+    response_variable: plex_response
+  - delay: "00:00:02"
+  - variables:
+      width: >-
+        {{
+        plex_response['content']['MediaContainer']['Metadata'][0]['Media'][0]['width']
+        }}
+      height: >-
+        {{
+        plex_response['content']['MediaContainer']['Metadata'][0]['Media'][0]['height']
+        }}
+      aspect_ratio: "{{ (width | float / height | float) | round(2) }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ 1.32 <= aspect_ratio <= 1.35 }}"
+        sequence:
+          - data:
+              device: "47357187"
+              command: 1
+            target:
+              entity_id: remote.Harmony_hub
+            action: remote.send_command
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set payload = trigger.data.payload.decode() | from_json %} {{
+               1.75 <= aspect_ratio <= 1.79 or payload.event == 'media.pause' }}
+        sequence:
+          - data:
+              device: "47357187"
+              command: 1
+            target:
+              entity_id: remote.Harmony_hub
+            action: remote.send_command
+      - conditions:
+          - condition: template
+            value_template: "{{ 2.35 <= aspect_ratio <= 2.40 }}"
+        sequence:
+          - data:
+              device: "47357187"
+              command: 3
+            target:
+              entity_id: remote.Harmony_hub
+            action: remote.send_command
+      - conditions:
+          - condition: template
+            value_template: "{{ 2.20 <= aspect_ratio <= 2.25 }}"
+        sequence:
+          - data:
+              device: "47357187"
+              command: 4
+            target:
+              entity_id: remote.Harmony_hub
+            action: remote.send_command
+      - conditions:
+          - condition: template
+            value_template: "{{ 1.84 <= aspect_ratio <= 1.90 }}"
+        sequence:
+          - data:
+              device: "47357187"
+              command: 2
+            target:
+              entity_id: remote.Harmony_hub
+            action: remote.send_command
+    default:
+      - data:
+          message: "aspect ratio is unknown"
+        action: notify.notify
+mode: single
